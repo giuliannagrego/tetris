@@ -2,10 +2,11 @@ package src.environment;
 import src.application.Tetris;
 import src.design.Drawing;
 
-import java.awt.Dimension;
-import java.awt.Graphics;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -58,7 +59,7 @@ public class Board extends JPanel implements ActionListener {
         time.start();
 
         // Get game status with parameter JFrame
-        status = father.getStatus;
+        status = father.getStatus();
 
         // Sets how many pieces there are in environment
         board = new Drawing.TetrisShape[BoardWidth * BoardHeight];
@@ -71,6 +72,7 @@ public class Board extends JPanel implements ActionListener {
     }
 
     // Defines the pattern of the piece falling in the game
+    @Override
     public void actionPerformed (ActionEvent e) {
 
         // If it just fell, crate a new drawing
@@ -79,7 +81,7 @@ public class Board extends JPanel implements ActionListener {
             isFallingOver = false;
             newPiece();
         } else {
-            dropOneLine();
+            dropALine();
         }
     }
 
@@ -156,7 +158,7 @@ public class Board extends JPanel implements ActionListener {
         Dimension size = getSize();
 
         // Sets the top of Jpanel
-        int squareTop = (int) size.getHeight() = BoardHeight * squareHeigth();
+        int squareTop = (int) size.getHeight() - BoardHeight * squareHeigth();
 
         // Creates a Tetris square at the top of the Jpanel
         for (int h = 0; h < BoardHeight; h++) {
@@ -210,21 +212,185 @@ public class Board extends JPanel implements ActionListener {
         cutPiece();
     }
 
+    // Move down one line in Jpanel
     private void dropALine() {
 
+        // For each pixel on the screen, defines no drawing
         if(!tryMove(currentPiece, currentX, currentY - 1)) {
             cutPiece();
         }
     }
 
+    private void clearBoard() {
+        for (int i = 0; i < BoardHeight * BoardWidth; i++) {
+            board[i] = Drawing.TetrisShape.NoPiece;
+        }
+    }
 
+    private void cutPiece() {
 
+        for (int i = 0; i < 4; i++) {
 
+            int x = currentX + currentPiece.x(i);
+            int y = currentY + currentPiece.y(i);
 
+            board[(y * BoardWidth) + x] = currentPiece.getDrawing();
+        }
 
+        removeFullLine();
 
-    @Override
-    public void actionPerformed(ActionEvent e) {
+        if (!isFallingOver) {
+            newPiece();
+        }
+    }
 
+    private void newPiece() {
+
+        currentPiece.setRandomDesign();
+
+        currentX = BoardWidth / 2 + 1;
+        currentY = BoardHeight - 1 + currentPiece.minY();
+
+        if (!tryMove(currentPiece, currentX, currentY)){
+
+            currentPiece.setDraw(Drawing.TetrisShape.NoPiece);
+
+            time.stop();
+            isStarted = false;
+
+            status.setText(("FIM DE JOGO!"));
+        }
+    }
+
+    private boolean tryMove(Drawing newPiece, int newX, int newY) {
+
+        for ( int i = 0; i < 4; i++){
+
+            int x = newX + newPiece.x(i);
+            int y = newY + newPiece.y(i);
+
+            if (x < 0 || x >= BoardWidth || y < 0 || y >= BoardHeight) {
+                return  false;
+            }
+            if (drawingIn(x, y) != Drawing.TetrisShape.NoPiece) {
+                return false;
+            }
+        }
+
+        currentPiece = newPiece;
+        currentX = newX;
+        currentY = newY;
+
+        repaint();
+
+        return true;
+    }
+
+    private void removeFullLine() {
+
+        int FullLines = 0;
+
+        for (int i = BoardHeight - 1; i >= 0; i--){
+
+            boolean lineIsFull = true;
+
+            for (int j = 0; j < BoardHeight; j++) {
+
+                if (drawingIn(j, i) == Drawing.TetrisShape.NoPiece) {
+                    lineIsFull = false;
+                    break;
+                }
+            }
+
+            if (lineIsFull) {
+
+                ++FullLines;
+
+                for (int k = i; k < BoardHeight - 1; k++) {
+                    for (int j = 0; j < BoardWidth; j++) {
+                        board[(k * BoardWidth) + j] = drawingIn(j, k + 1);
+                    }
+                }
+            }
+        }
+
+        if (FullLines > 0) {
+
+            RemovedLines += FullLines;
+
+            status.setText(("Pontuação" + String.valueOf(RemovedLines)));
+
+            isFallingOver = true;
+            currentPiece.setDraw(Drawing.TetrisShape.NoPiece);
+
+            repaint();
+        }
+    }
+
+    private void drawingSquare(Graphics g, int x, int y, Drawing.TetrisShape drawing) {
+
+        Color colors[] = {
+                new Color(0, 0, 0), new Color(204, 102, 102),
+                new Color(102, 204, 102), new Color(102, 102, 201),
+                new Color(204, 204, 102), new Color(204, 102, 204),
+                new Color(102 ,204, 204), new Color(218, 170, 0)
+        };
+
+        Color color = colors[drawing.ordinal()];
+
+        g.setColor(color);
+        g.fillRect(x + 1, y + 1, squareWidth() - 2, squareHeigth() - 2);
+
+        g.setColor(color.brighter());
+        g.drawLine(x, y + squareHeigth() - 1, x, y);
+        g.drawLine(x, y, x + squareWidth() - 1, y);
+
+        g.setColor(color.darker());
+        g.drawLine(x + 1, y + squareHeigth() - 1, x + squareWidth() - 1, squareHeigth() - 1);
+        g.drawLine(x + squareWidth() - 1, y + squareHeigth() - 1, x + squareWidth() - 1, y + 1);
+
+    }
+
+    public class TAdapter extends KeyAdapter {
+
+        @Override
+        public void keyPressed (KeyEvent e){
+
+            if ((!isStarted || currentPiece.getDrawing() == Drawing.TetrisShape.NoPiece)) {
+                return;
+            }
+
+            int keycode = e.getKeyCode();
+
+            if (keycode == 'p' || keycode == 'P') {
+                pause();
+                return;
+            }
+
+            if (isPaused) {
+                return;
+            }
+
+            switch (keycode){
+                case KeyEvent.VK_LEFT:
+                    tryMove(currentPiece, currentX - 1, currentY);
+                    break;
+                case KeyEvent.VK_RIGHT:
+                    tryMove(currentPiece, currentX + 1, currentY);
+                    break;
+                case KeyEvent.VK_DOWN:
+                    dropALine();
+                    break;
+                case KeyEvent.VK_C:
+                    tryMove(currentPiece.rotateRight(), currentX, currentY);
+                    break;
+                case KeyEvent.VK_Z:
+                    tryMove(currentPiece.rotateLeft(), currentX, currentY);
+                    break;
+                case KeyEvent.VK_SPACE:
+                    jumpDown();
+                    break;
+            }
+        }
     }
 }

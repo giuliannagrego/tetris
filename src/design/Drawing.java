@@ -39,7 +39,7 @@ public class Drawing {
 
         // Set the drawing coordinates
         for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 2; i++ ) {
+            for (int j = 0; j < 2; j++ ) {
                 coordinates[i][j] = coordinatesTable[drawing.ordinal()][i][j];
             }
         }
